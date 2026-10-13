@@ -1,0 +1,126 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+model Product {
+  id        String   @id @default(cuid())
+  sku       String   @unique
+  name      String
+  price     Int
+  deposit   Int
+  stock     Int
+  active    Boolean  @default(true)
+  version   Int      @default(0)
+  createdAt DateTime @default(now())
+  orders    Order[]
+}
+model LiveSession {
+  id               String    @id @default(cuid())
+  title            String
+  username         String
+  status           String    @default("ACTIVE")
+  currentProductId String?
+  connectionStatus String    @default("DEMO")
+  heartbeatAt      DateTime?
+  lastError        String?
+  createdAt        DateTime  @default(now())
+  comments         Comment[]
+  orders           Order[]
+}
+model Comment {
+  id          String      @id @default(cuid())
+  sessionId   String
+  session     LiveSession @relation(fields: [sessionId], references: [id])
+  eventId     String
+  text        String
+  userId      String
+  handle      String
+  displayName String
+  occurredAt  DateTime
+  status      String      @default("NEW")
+  reason      String?
+  createdAt   DateTime    @default(now())
+  order       Order?
+  @@unique([sessionId, eventId])
+  @@index([sessionId, createdAt])
+}
+model Order {
+  id                String      @id @default(cuid())
+  code              String      @unique
+  sessionId         String
+  session           LiveSession @relation(fields: [sessionId], references: [id])
+  commentId         String      @unique
+  comment           Comment     @relation(fields: [commentId], references: [id])
+  productId         String
+  product           Product     @relation(fields: [productId], references: [id])
+  userId            String
+  handle            String
+  displayName       String
+  phone             String
+  customerName      String?
+  address           String?
+  total             Int
+  deposit           Int
+  amountPaid        Int         @default(0)
+  status            String      @default("AWAITING_DETAILS")
+  tokenHash         String      @unique
+  tokenEncrypted    String
+  tokenExpiresAt    DateTime
+  reservedUntil     DateTime
+  stockHeld         Boolean     @default(true)
+  consentAt         DateTime?
+  createdAt         DateTime    @default(now())
+  payments          Payment[]
+  notifications     Notification[]
+  @@index([sessionId, userId, productId, createdAt])
+  @@index([status, reservedUntil])
+}
+model Payment {
+  id            String   @id @default(cuid())
+  orderId       String
+  order         Order    @relation(fields: [orderId], references: [id])
+  orderCode     Int      @unique @default(autoincrement())
+  amount        Int
+  provider      String
+  status        String   @default("CREATING")
+  paymentLinkId String?  @unique
+  checkoutUrl   String?
+  qrData        String?
+  createdAt     DateTime @default(now())
+  expiresAt     DateTime
+  receipts      PaymentReceipt[]
+  @@index([orderId, status])
+}
+model PaymentReceipt {
+  id        String   @id @default(cuid())
+  reference String   @unique
+  paymentId String
+  payment   Payment  @relation(fields: [paymentId], references: [id])
+  amount    Int
+  createdAt DateTime @default(now())
+}
+model Notification {
+  id         String   @id @default(cuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id])
+  channel    String
+  status     String   @default("QUEUED")
+  attempts   Int      @default(0)
+  lastError  String?
+  createdAt  DateTime @default(now())
+  sentAt     DateTime?
+  @@index([status, createdAt])
+}
+model UnmatchedReceipt {
+  id            String   @id @default(cuid())
+  reference     String   @unique
+  orderCode     Int
+  amount        Int
+  paymentLinkId String
+  currency      String
+  status        String   @default("UNMATCHED")
+  createdAt     DateTime @default(now())
+}
