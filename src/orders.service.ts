@@ -8,6 +8,7 @@ import {hashToken, encryptToken, decryptToken} from './security.ts';
 import {PaymentGateway} from './payments.ts';
 import {commentSchema, detailsSchema, productSchema, sessionSchema, validate, type CommentInput} from './validation.ts';
 import {z} from 'zod';
+import {orderChecks, workflowStatuses, issueCodes} from './order-workflow.ts';
 
 @Injectable()
 export class OrdersService {
@@ -44,6 +45,7 @@ export class OrdersService {
       products, sessions, comments, notifications, unmatchedReceipts,
       orders: orders.map(({tokenEncrypted, tokenHash, ...order}) => ({
         ...order,
+        ...orderChecks(order),
         checkoutUrl: this.link({tokenEncrypted})
       })),
       metrics: {
@@ -346,6 +348,26 @@ export class OrdersService {
       paymentLinkId: payment.paymentLinkId!, currency: 'VND'
     });
     return this.publicOrder(token);
+  }
+
+  async updateChecks(id: string, input: unknown) {
+    const data = validate(z.object({
+      workflowStatus: z.enum(workflowStatuses),
+      zaloContact: z.string().trim().max(200).nullable(),
+      issues: z.array(z.enum(issueCodes)).max(issueCodes.length),
+      issueNote: z.string().trim().max(1000).nullable()
+    }).strict(), input);
+    return this.transaction(async tx => {
+      const order = await tx.order.findUniqueOrThrow({where: {id}, include: {payments: true}});
+      if (['CANCELLED', 'EXPIRED'].includes(order.status)) throw new ConflictException('Inactive orders cannot be checked.');
+      if (data.workflowStatus !== 'NEEDS_MATCHING' && !data.zaloContact) throw new BadRequestException('Enter the matched Zalo contact first.');
+      if (data.workflowStatus === 'NEEDS_MATCHING' && data.zaloContact) throw new BadRequestException('Select Zalo matched when a contact is provided.');
+      const checks = orderChecks({...order, ...data});
+      if (['READY', 'CONFIRMED'].includes(data.workflowStatus) && checks.checkIssues.length) throw new ConflictException('Resolve missing customer details, flagged issues and payment reviews before marking this order ready or confirmed.');
+      if (data.issues.includes('OTHER') && !data.issueNote) throw new BadRequestException('Describe the other issue in the note.');
+      await tx.order.update({where: {id}, data: {...data, issues: [...new Set(data.issues)]}});
+      return {updated: true};
+    });
   }
 
   async notify(id: string) {

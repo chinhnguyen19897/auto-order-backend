@@ -66,6 +66,10 @@ model Order {
   deposit           Int
   amountPaid        Int         @default(0)
   status            String      @default("AWAITING_DETAILS")
+  workflowStatus    String      @default("NEEDS_MATCHING")
+  zaloContact       String?
+  issues            String[]    @default([])
+  issueNote         String?
   tokenHash         String      @unique
   tokenEncrypted    String
   tokenExpiresAt    DateTime

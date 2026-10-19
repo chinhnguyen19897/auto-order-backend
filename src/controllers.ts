@@ -82,6 +82,10 @@ export class AdminController {
     return this.orders.ignore(id);
   }
 
+  @Patch('orders/:id/checks') updateChecks(@Param('id') id: string, @Body() b: unknown) {
+    return this.orders.updateChecks(id, b);
+  }
+
   @Post('orders/:id/notify') notify(@Param('id') id: string) {
     return this.orders.notify(id);
   }

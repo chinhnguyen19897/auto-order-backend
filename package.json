@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "bootstrap": "yarn install && yarn run setup && docker compose up -d --wait && yarn run db:migrate && yarn run db:seed && yarn run dev",
-    "dev:local": "docker compose up -d --wait && yarn run dev",
+    "dev:local": "docker compose up -d --wait && yarn run db:migrate && yarn run db:seed && yarn run dev",
     "dev": "npm run build && concurrently -k -n compiler,api,worker \"tsc --watch\" \"node --watch dist/main.js\" \"node --watch dist/worker.js\"",
     "worker:dev": "node --watch dist/worker.js",
     "build": "prisma generate && tsc",
