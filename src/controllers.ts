@@ -32,7 +32,7 @@ export class AuthController {
       secure: env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 8 * 3600_000,
-      path: '/'
+      path: '/dashboard'
     });
     return {signedIn: true};
   }
